@@ -6,29 +6,29 @@ import (
 )
 
 type cache struct {
-	mu         sync.Mutex
-	lru        *lru.Cache
+	mutex      sync.Mutex
+	lruCache   *lru.Cache
 	cacheBytes int64
 }
 
-func (c *cache) add(key string, value ByteView) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.lru == nil {
-		c.lru = lru.New(c.cacheBytes, nil)
+func (cache *cache) add(key string, value ByteView) {
+	cache.mutex.Lock()
+	defer cache.mutex.Unlock()
+	if cache.lruCache == nil {
+		cache.lruCache = lru.New(cache.cacheBytes, nil)
 	}
-	c.lru.Add(key, value)
+	cache.lruCache.Add(key, value)
 }
 
-func (c *cache) get(key string) (value ByteView, ok bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.lru == nil {
+func (cache *cache) get(key string) (value ByteView, success bool) {
+	cache.mutex.Lock()
+	defer cache.mutex.Unlock()
+	if cache.lruCache == nil {
 		return
 	}
 
-	if v, ok := c.lru.Get(key); ok {
-		return v.(ByteView), ok
+	if val, success := cache.lruCache.Get(key); success {
+		return val.(ByteView), success
 	}
 
 	return
