@@ -7,37 +7,35 @@ import (
 	"geerpc/codec"
 	"log"
 	"net"
-	"net/http"
 	"time"
 )
 
-func startServer() {
-	l, err := net.Listen("tcp", ":9999")
+func startServer(addr chan string) {
+	// pick a free port
+	l, err := net.Listen("tcp", ":0")
 	if err != nil {
-		log.Panic("network error:", err)
+		log.Fatal("network error:", err)
 	}
+	log.Println("start rpc server on", l.Addr())
+	addr <- l.Addr().String()
 	geerpc.Accept(l)
-
 }
 
 func main() {
-	log.SetPrefix("")
-	go startServer()
-	time.Sleep(time.Second)
+	log.SetFlags(0)
+	addr := make(chan string)
+	go startServer(addr)
 
-	// In fact, following code is like a simple GeeRPC Client
-	conn, _ := net.Dial("tcp", ":9999")
+	// in fact, following code is like a simple geerpc client
+	conn, _ := net.Dial("tcp", <-addr)
 	defer func() { _ = conn.Close() }()
 
-	// negotiate options
-	_ = json.NewEncoder(conn).Encode(&geerpc.Options{
-		MagicNumber: geerpc.MagicNumber,
-		CodecType:   codec.GobType,
-	})
-
+	time.Sleep(time.Second)
+	// send options
+	_ = json.NewEncoder(conn).Encode(geerpc.DefaultOption)
 	cc := codec.NewGobCodec(conn)
 	// send request & receive response
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 5; i++ {
 		h := &codec.Header{
 			ServiceMethod: "Foo.Sum",
 			Seq:           uint64(i),
@@ -48,5 +46,4 @@ func main() {
 		_ = cc.ReadBody(&reply)
 		log.Println("reply:", reply)
 	}
-	log.Fatal(http.ListenAndServe(":9999", nil))
 }
